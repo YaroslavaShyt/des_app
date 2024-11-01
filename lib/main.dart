@@ -1,15 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:encrypt/encrypt.dart' as encrypt;
+import 'package:flutter_des/flutter_des.dart';
 
-class EncryptionModes {
-  static const CBC = encrypt.AESMode.cbc;
-  static const CFB64 = encrypt.AESMode.cfb64;
-  static const CTR = encrypt.AESMode.ctr;
-  static const ECB = encrypt.AESMode.ecb;
-  static const OFB64GCTR = encrypt.AESMode.ofb64Gctr;
-  static const OFB64 = encrypt.AESMode.ofb64;
-  static const SIC = encrypt.AESMode.sic;
-  static const PADDING = 'PKCS7';
+void main() {
+  runApp(
+    const MaterialApp(
+      home: DesEncryptionScreen(),
+      debugShowCheckedModeBanner: false,
+    ),
+  );
 }
 
 class DesEncryptionScreen extends StatefulWidget {
@@ -20,48 +18,50 @@ class DesEncryptionScreen extends StatefulWidget {
 }
 
 class _DesEncryptionScreenState extends State<DesEncryptionScreen> {
-  final TextEditingController _controller = TextEditingController();
-  final TextEditingController _keyController = TextEditingController();
-  final TextEditingController _ivController = TextEditingController();
-  String _selectedMode = 'CBC';
+  final TextEditingController _textController = TextEditingController(
+      text: "This is the text for encryption written by Yaroslava Shyt");
+  final TextEditingController _keyController = TextEditingController(
+    text: "u1BvOHzUOcklgNpn1MaWvdn9DT4LyzSX",
+  );
+  final TextEditingController _ivController = TextEditingController(
+    text: "12345678",
+  );
   String _result = '';
-  bool _isEncryption = true;
 
-  final List<String> _modes = ['CBC', 'CFB64', 'CTR', 'ECB', 'OFB64GCTR'];
+  Future<void> _encrypt() async {
+    try {
+      final text = _textController.text;
+      final key = _keyController.text;
+      final iv = _ivController.text;
 
-  void _performDesEncryption() {
-    final key =
-        encrypt.Key.fromUtf8(_keyController.text.padRight(8).substring(0, 8));
-    final iv =
-        encrypt.IV.fromUtf8(_ivController.text.padRight(8).substring(0, 8));
+      final encryptedText = await FlutterDes.encryptToHex(text, key, iv: iv);
+      setState(() {
+        _result = encryptedText.toString();
+      });
+    } catch (e) {
+      setState(() {
+        _result = 'Encryption failed: $e';
+        print(e.toString());
+      });
+    }
+  }
 
-    final desMode = {
-      'CBC': EncryptionModes.CBC,
-      'CFB64': EncryptionModes.CFB64,
-      'CTR': EncryptionModes.CTR,
-      'ECB': EncryptionModes.ECB,
-      'OFB64GCTR': EncryptionModes.OFB64GCTR,
-    }[_selectedMode]!;
+  Future<void> _decrypt() async {
+    try {
+      final encryptedText = _textController.text;
+      final key = _keyController.text;
+      final iv = _ivController.text;
 
-    final encrypter = encrypt.Encrypter(
-      encrypt.AES(
-        key,
-        mode: desMode,
-        padding: EncryptionModes.PADDING,
-      ),
-    );
-
-    final text = _controller.text;
-
-    setState(() {
-      if (_isEncryption) {
-        final encrypted = encrypter.encrypt(text, iv: iv);
-        _result = encrypted.base64;
-      } else {
-        final decrypted = encrypter.decrypt64(text, iv: iv);
-        _result = decrypted;
-      }
-    });
+      final decryptedText =
+          await FlutterDes.decryptFromHex(encryptedText, key, iv: iv);
+      setState(() {
+        _result = decryptedText ?? 'not decrypted';
+      });
+    } catch (e) {
+      setState(() {
+        _result = 'Decryption failed: $e';
+      });
+    }
   }
 
   @override
@@ -76,53 +76,28 @@ class _DesEncryptionScreenState extends State<DesEncryptionScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             TextField(
-              controller: _controller,
-              decoration: const InputDecoration(labelText: 'Text to Encrypt/Decrypt'),
+              controller: _textController,
+              decoration:
+                  const InputDecoration(labelText: 'Text to Encrypt/Decrypt'),
             ),
             TextField(
               controller: _keyController,
-              decoration: const InputDecoration(labelText: 'Key (8 characters)'),
-              maxLength: 8,
+              decoration: const InputDecoration(labelText: 'Key'),
             ),
             TextField(
               controller: _ivController,
-              decoration: const InputDecoration(
-                  labelText: 'IV (optional for ECB, 8 characters)'),
+              decoration: const InputDecoration(labelText: 'IV'),
               maxLength: 8,
-            ),
-            DropdownButton<String>(
-              value: _selectedMode,
-              onChanged: (newMode) {
-                setState(() {
-                  _selectedMode = newMode!;
-                });
-              },
-              items: _modes.map<DropdownMenuItem<String>>((String mode) {
-                return DropdownMenuItem<String>(
-                  value: mode,
-                  child: Text(mode),
-                );
-              }).toList(),
             ),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
                 ElevatedButton(
-                  onPressed: () {
-                    setState(() {
-                      _isEncryption = true;
-                    });
-                    _performDesEncryption();
-                  },
+                  onPressed: _encrypt,
                   child: const Text('Encrypt'),
                 ),
                 ElevatedButton(
-                  onPressed: () {
-                    setState(() {
-                      _isEncryption = false;
-                    });
-                    _performDesEncryption();
-                  },
+                  onPressed: _decrypt,
                   child: const Text('Decrypt'),
                 ),
               ],
@@ -134,7 +109,7 @@ class _DesEncryptionScreenState extends State<DesEncryptionScreen> {
             ),
             SelectableText(
               _result,
-              style: const  TextStyle(fontSize: 16),
+              style: const TextStyle(fontSize: 16),
             ),
           ],
         ),

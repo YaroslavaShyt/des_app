@@ -10,7 +10,7 @@ dependencies:
   flutter:
     sdk: flutter
 
-  encrypt: ^5.0.1
+  flutter_des: ^2.2.0
 
 dev_dependencies:
   flutter_test:
